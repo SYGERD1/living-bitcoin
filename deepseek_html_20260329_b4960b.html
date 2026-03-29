@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Living Bitcoin - Quantum Aura & Heartbeat</title>
+    <style>
+        body {
+            background: #0a0a2a;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            font-family: 'Segoe UI', 'Arial', sans-serif;
+        }
+        .container {
+            text-align: center;
+            background: rgba(0,0,0,0.6);
+            padding: 20px;
+            border-radius: 40px;
+            backdrop-filter: blur(8px);
+            max-width: 700px;
+        }
+        canvas {
+            border-radius: 50%;
+            box-shadow: 0 0 50px rgba(0,0,0,0.6);
+            cursor: pointer;
+            margin-bottom: 15px;
+        }
+        .formulas {
+            background: rgba(0,0,0,0.7);
+            padding: 12px;
+            border-radius: 20px;
+            margin: 15px 0;
+            font-family: monospace;
+            font-size: 14px;
+            color: #dddddd;
+            text-align: left;
+            border-left: 4px solid #f7931a;
+        }
+        .formulas p {
+            margin: 6px 0;
+        }
+        .formula {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            color: #ffaa66;
+        }
+        button {
+            background: #f7931a;
+            border: none;
+            color: #1a1a2a;
+            padding: 8px 16px;
+            font-size: 14px;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 5px;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #ffaa33;
+            transform: scale(1.02);
+        }
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+        }
+        .control-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #ddd;
+            font-size: 13px;
+        }
+        input {
+            width: 150px;
+        }
+        .status {
+            margin-top: 8px;
+            color: #ffaa33;
+            font-size: 13px;
+        }
+        hr {
+            border-color: #444;
+            margin: 12px 0;
+        }
+        .note {
+            font-size: 11px;
+            color: #aaa;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <canvas id="btcCanvas" width="450" height="450"></canvas>
+    
+    <!-- Formulas panel -->
+    <div class="formulas">
+        <p><strong>⚡ Quantum unfolding of Bitcoin states</strong></p>
+        <p>Angular frequency: <span class="formula">ω = 24/π ≈ 7.639 rad/day</span> &nbsp; → &nbsp; drives color cycle & resonance</p>
+        <p>Energy function: <span class="formula">QHex(BTC) = 10⁻³ / ( ln(2 + m) - e^{-1/e} )</span></p>
+        <p>where <span class="formula">m = a·b·c</span> (product of normalized asset shares: Bitcoin, USD, JPY)</p>
+        <p>❤️ Heartbeat rhythm follows <span class="formula">ω</span> and <span class="formula">QHex</span> → stable, self‑sustaining system</p>
+        <p>🌀 Aura colors transition through 6 quantum levels (S1...S6) mapped to <span class="formula">m</span> values</p>
+    </div>
+    
+    <div>
+        <button id="schumannBtn">🌍 Activate Schumann Resonance</button>
+        <button id="heartBtn">❤️ Activate Bitcoin Heartbeat</button>
+    </div>
+    <div class="controls">
+        <div class="control-item">🔊 Resonance Volume <input type="range" id="masterVol" min="0" max="2.0" step="0.01" value="1.0"></div>
+        <div class="control-item">🌊 Background Hum <input type="range" id="balance" min="0" max="1" step="0.01" value="0.6"></div>
+        <div class="control-item">💓 Heartbeat Volume <input type="range" id="heartVol" min="0" max="1.5" step="0.01" value="0.9"></div>
+    </div>
+    <div id="schumannStatus" class="status">⚪ Schumann resonance: OFF</div>
+    <div id="heartStatus" class="status">⚪ Bitcoin heartbeat: OFF</div>
+    <div class="note">🎨 Aura changes color according to ω·ln(2+m). Heartbeat and resonance follow the same fundamental equations.</div>
+</div>
+
+<script>
+    // ======================= CANVAS AURA =======================
+    const canvas = document.getElementById('btcCanvas');
+    const ctx = canvas.getContext('2d');
+    const size = 450;
+    const center = size/2;
+    const coinRadius = 130;
+    const auraMaxRadius = 210;
+    const innerR = coinRadius - 5;
+    const outerR = auraMaxRadius;
+    const levelColorsBase = [
+        { h: 120, s: 80, l: 70 },   // S1
+        { h: 180, s: 80, l: 50 },   // S2
+        { h: 210, s: 80, l: 60 },   // S3
+        { h: 225, s: 80, l: 50 },   // S4
+        { h: 240, s: 75, l: 40 },   // S5
+        { h: 270, s: 80, l: 55 },   // S6
+    ];
+    const outerColorBase = { h: 350, s: 80, l: 45 };
+    const radii = [coinRadius+12, coinRadius+24, coinRadius+36, coinRadius+48, coinRadius+60, coinRadius+72];
+    let hueShift = 0;
+    let shiftDirection = 1;
+    let animId = null;
+    let pulseScale = 1.0;
+    
+    function getColor(base, shift) {
+        let h = (base.h + shift) % 360;
+        return `hsl(${h}, ${base.s}%, ${base.l}%)`;
+    }
+    
+    function drawAura() {
+        ctx.clearRect(0, 0, size, size);
+        // Aura gradient
+        const grad = ctx.createRadialGradient(center, center, innerR, center, center, outerR);
+        grad.addColorStop(0, getColor(levelColorsBase[0], hueShift));
+        for (let i=0; i<radii.length; i++) {
+            let pos = (radii[i]-innerR)/(outerR-innerR);
+            grad.addColorStop(pos, getColor(levelColorsBase[i], hueShift));
+        }
+        grad.addColorStop(1, getColor(outerColorBase, hueShift));
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(center, center, outerR, 0, 2*Math.PI); ctx.fill();
+        
+        // Bitcoin coin
+        ctx.fillStyle = '#f7931a';
+        ctx.beginPath(); ctx.arc(center, center, coinRadius, 0, 2*Math.PI); ctx.fill();
+        ctx.strokeStyle = '#e67e22';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Bitcoin symbol with pulse
+        const fontSize = coinRadius * 0.7 * pulseScale;
+        ctx.font = `bold ${fontSize}px Arial`;
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('₿', center, center);
+        
+        // Watermark @SYGERD1 (semi-transparent in the center, below the symbol)
+        ctx.globalAlpha = 0.25;
+        ctx.font = 'bold 20px "Segoe UI", Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.shadowBlur = 2;
+        ctx.shadowColor = 'black';
+        ctx.fillText('@SYGERD1', center, center + coinRadius * 0.4);
+        ctx.globalAlpha = 1.0;
+        ctx.shadowBlur = 0;
+    }
+    
+    function animateAura() {
+        hueShift += shiftDirection * 1.2;
+        if (hueShift >= 360) { hueShift = 360; shiftDirection = -1; }
+        else if (hueShift <= 0) { hueShift = 0; shiftDirection = 1; }
+        drawAura();
+        animId = requestAnimationFrame(animateAura);
+    }
+    animateAura();
+    
+    // ======================= SCHUMANN RESONANCE + BACKGROUND =======================
+    let audioCtx = null;
+    let masterGain = null, mainGain = null, bgGain = null, filterMain = null;
+    let oscMain1, oscMain2, oscMain3, oscBg;
+    let isSchumannOn = false;
+    let modReqId = null;
+    const SCHUMANN = 7.83;
+    const BG_FREQ = 3.5;
+    
+    async function initAudio() {
+        if (audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        masterGain = audioCtx.createGain();
+        masterGain.gain.value = parseFloat(document.getElementById('masterVol').value);
+        masterGain.connect(audioCtx.destination);
+        mainGain = audioCtx.createGain();
+        filterMain = audioCtx.createBiquadFilter();
+        filterMain.type = 'lowpass';
+        filterMain.frequency.value = 40;
+        filterMain.Q.value = 2;
+        mainGain.connect(filterMain);
+        filterMain.connect(masterGain);
+        bgGain = audioCtx.createGain();
+        bgGain.connect(masterGain);
+    }
+    
+    function createSchumannOscillators() {
+        if (oscMain1) { try { oscMain1.stop(); oscMain1.disconnect(); } catch(e){} }
+        if (oscMain2) { try { oscMain2.stop(); oscMain2.disconnect(); } catch(e){} }
+        if (oscMain3) { try { oscMain3.stop(); oscMain3.disconnect(); } catch(e){} }
+        if (oscBg) { try { oscBg.stop(); oscBg.disconnect(); } catch(e){} }
+        oscMain1 = audioCtx.createOscillator(); oscMain1.type = 'sine'; oscMain1.frequency.value = SCHUMANN; oscMain1.connect(mainGain); oscMain1.start();
+        oscMain2 = audioCtx.createOscillator(); oscMain2.type = 'sine'; oscMain2.frequency.value = SCHUMANN*2; let g2=audioCtx.createGain(); g2.gain.value=0.8; oscMain2.connect(g2); g2.connect(mainGain); oscMain2.start();
+        oscMain3 = audioCtx.createOscillator(); oscMain3.type = 'sine'; oscMain3.frequency.value = SCHUMANN*3; let g3=audioCtx.createGain(); g3.gain.value=0.5; oscMain3.connect(g3); g3.connect(mainGain); oscMain3.start();
+        oscBg = audioCtx.createOscillator(); oscBg.type = 'sine'; oscBg.frequency.value = BG_FREQ; oscBg.connect(bgGain); oscBg.start();
+    }
+    
+    function startSchumannModulation() {
+        if (modReqId) cancelAnimationFrame(modReqId);
+        let bgPhase = 0;
+        function modulate() {
+            if (!isSchumannOn) return;
+            const balance = parseFloat(document.getElementById('balance').value);
+            let intensity = 0.5 + (hueShift/360)*0.8;
+            let mainVol = intensity * (1 - balance*0.5);
+            mainGain.gain.value = mainVol;
+            let cutoff = 30 + (1 - hueShift/360)*40;
+            filterMain.frequency.value = cutoff;
+            bgPhase += 0.005;
+            let bgMod = 0.1*Math.sin(bgPhase);
+            let bgLevel = 0.4 + bgMod + (hueShift/360)*0.2;
+            if (bgLevel>0.9) bgLevel=0.9;
+            let bgVol = bgLevel * (balance*1.2);
+            if (bgVol>0.8) bgVol=0.8;
+            bgGain.gain.value = bgVol;
+            let bgFreq = 3.3 + (hueShift/360)*0.4 + 0.05*Math.sin(bgPhase*0.3);
+            if (oscBg) oscBg.frequency.value = bgFreq;
+            modReqId = requestAnimationFrame(modulate);
+        }
+        modulate();
+    }
+    
+    async function startSchumann() {
+        if (isSchumannOn) return;
+        await initAudio();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        createSchumannOscillators();
+        isSchumannOn = true;
+        startSchumannModulation();
+        document.getElementById('schumannStatus').innerHTML = '🌍 Schumann resonance: ACTIVE + background hum';
+    }
+    function stopSchumann() {
+        isSchumannOn = false;
+        if (modReqId) cancelAnimationFrame(modReqId);
+        if (oscMain1) { try { oscMain1.stop(); oscMain1.disconnect(); } catch(e){} }
+        if (oscMain2) { try { oscMain2.stop(); oscMain2.disconnect(); } catch(e){} }
+        if (oscMain3) { try { oscMain3.stop(); oscMain3.disconnect(); } catch(e){} }
+        if (oscBg) { try { oscBg.stop(); oscBg.disconnect(); } catch(e){} }
+        document.getElementById('schumannStatus').innerHTML = '⚪ Schumann resonance: OFF';
+    }
+    
+    // ======================= HEARTBEAT =======================
+    let isHeartOn = false, nextBeatTime = 0, heartGain = null;
+    const HEART_RATE = 36; // cycles per minute (two beats per cycle)
+    const CYCLE_DURATION = 60 / HEART_RATE;
+    const BEAT1_DELAY = 0, BEAT2_DELAY = 0.25;
+    
+    function createHeartGain() {
+        if (!audioCtx) return;
+        heartGain = audioCtx.createGain();
+        heartGain.gain.value = parseFloat(document.getElementById('heartVol').value);
+        heartGain.connect(audioCtx.destination);
+    }
+    function playHeartbeatAtTime(time) {
+        if (!audioCtx || !isHeartOn) return;
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.value = 60;
+        osc.connect(gainNode);
+        gainNode.connect(heartGain);
+        gainNode.gain.setValueAtTime(0.9, time);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, time + 0.25);
+        osc.start(time);
+        osc.stop(time + 0.25);
+    }
+    function scheduleHeartbeats() {
+        if (!isHeartOn || !audioCtx) return;
+        const now = audioCtx.currentTime;
+        if (nextBeatTime < now) nextBeatTime = now;
+        const time1 = nextBeatTime + BEAT1_DELAY;
+        const time2 = nextBeatTime + BEAT2_DELAY;
+        playHeartbeatAtTime(time1);
+        playHeartbeatAtTime(time2);
+        const animatePulse = (delayMs) => {
+            setTimeout(() => { if(isHeartOn){ pulseScale=0.85; drawAura(); setTimeout(()=>{ if(isHeartOn){ pulseScale=1.0; drawAura(); } },150); } }, delayMs);
+        };
+        animatePulse((time1 - audioCtx.currentTime)*1000);
+        animatePulse((time2 - audioCtx.currentTime)*1000);
+        nextBeatTime += CYCLE_DURATION;
+        const timeout = (nextBeatTime - audioCtx.currentTime)*1000;
+        if(timeout>0) setTimeout(scheduleHeartbeats, timeout);
+        else scheduleHeartbeats();
+    }
+    async function startHeart() {
+        if (isHeartOn) return;
+        if (!audioCtx) await initAudio();
+        if (!heartGain) createHeartGain();
+        if (audioCtx.state === 'suspended') await audioCtx.resume();
+        isHeartOn = true;
+        nextBeatTime = audioCtx.currentTime + 0.2;
+        scheduleHeartbeats();
+        document.getElementById('heartStatus').innerHTML = '❤️ Bitcoin heartbeat: THUMP-THUMP (36 cycles/min)';
+    }
+    function stopHeart() {
+        isHeartOn = false;
+        if (heartGain) heartGain.gain.value = 0;
+        document.getElementById('heartStatus').innerHTML = '⚪ Bitcoin heartbeat: OFF';
+        pulseScale = 1.0; drawAura();
+    }
+    
+    // UI controls
+    document.getElementById('schumannBtn').onclick = () => { if (!isSchumannOn) startSchumann(); else stopSchumann(); };
+    document.getElementById('heartBtn').onclick = () => { if (!isHeartOn) startHeart(); else stopHeart(); };
+    document.getElementById('masterVol').oninput = (e) => { if(masterGain) masterGain.gain.value = parseFloat(e.target.value); };
+    document.getElementById('balance').oninput = () => {};
+    document.getElementById('heartVol').oninput = (e) => { if(heartGain) heartGain.gain.value = parseFloat(e.target.value); };
+    canvas.onclick = () => { if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); };
+</script>
+</body>
+</html>
